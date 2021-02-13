@@ -1,4 +1,4 @@
-# for_gasinform
+# gasinform
 
 По заданиям:
 
