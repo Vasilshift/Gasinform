@@ -3,3 +3,20 @@ create table main (t1 int);
 create unique index main_idx on main (t1);
 
 create table mainlog (logdata  varchar(512));
+
+CREATE OR REPLACE FUNCTION MAIN_LOG (IN pResult CHAR)
+RETURNS void AS
+$$
+DECLARE
+  INSERT_SQL text := 'INSERT INTO MAINLOG (logdata) VALUES (''[MESSAGE]'')';
+BEGIN
+  IF p_level != 'ERROR' AND p_level != 'WARNING'
+    AND p_level != 'INFO' AND p_level != 'DEBUG' THEN
+    RAISE EXCEPTION 'Log level should be one of the following types: ERROR, WARNING, INFO, DEBUG';
+  END IF;
+  
+  INSERT_SQL := replace(INSERT_SQL, '[MESSAGE]', pResult);
+  
+  PERFORM dblink_exec('dbname=' || current_database(), INSERT_SQL);
+END;
+$$ LANGUAGE 'plpgsql';
