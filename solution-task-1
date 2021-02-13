@@ -1,0 +1,5 @@
+create table main (t1 int);
+
+create unique index main_idx on main (t1);
+
+create table mainlog (logdata  varchar(512));
