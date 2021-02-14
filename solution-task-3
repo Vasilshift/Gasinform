@@ -1,0 +1,81 @@
+-- 1.Создаем составной тип
+DO
+$$
+BEGIN
+  CREATE TYPE region_type as (id integer,name varchar(100), pid integer);
+
+EXCEPTION 
+  WHEN duplicate_object
+  THEN return;
+END;$$
+LANGUAGE plpgsql;
+
+-- 2.Создаем домейн для массива типа region_type
+DO $$
+begin
+  CREATE DOMAIN reg_tab AS region_type[];
+EXCEPTION 
+  WHEN duplicate_object
+  THEN return;
+END
+$$;
+
+-- 3.Создаем функцию установки значений в массив
+CREATE OR REPLACE FUNCTION tab_SET(in p_tab reg_tab, p_region region_type) 
+returns reg_tab 
+language plpgsql as 
+$$
+declare
+begin
+  return array_append(p_tab, p_region);  
+end;
+$$;
+
+-- 4.Создаем функции для получении массива
+CREATE OR REPLACE FUNCTION tab_GET(p_tab reg_tab) 
+returns reg_tab 
+language plpgsql as 
+$$
+declare
+begin
+  return p_tab;  
+end;
+$$;
+
+-- 
+DO
+language plpgsql  
+$$
+DECLARE
+ t_reg_tab reg_tab;
+ r record;
+
+BEGIN
+
+	SELECT 
+	  array_agg(a.*)
+	INTO t_reg_tab
+	FROM 
+	 (VALUES
+	  (1,'Россия', null),
+	  (2, 'Москва', 1),
+	  (3, 'Санкт-Петербург', 1),
+	  (4, 'Краснодарский край', 1),
+	  (5, 'Краснодар', 4),
+	  (6, 'Воронежская область', 1),
+	  (7, 'Воронеж', 6),
+	  (8, 'Лиски', 6),
+	  (9, 'Сочи', 4),
+	  (10, 'Алтайский край', 1),
+	  (11, 'Барнаул', 10))
+	  AS a(id,name, pid);
+    
+    FOR r IN
+       (SELECT a.* FROM  UNNEST(tab_GET(t_reg_tab)) a) 
+	LOOP
+       RAISE NOTICE '%', r.name;
+    END LOOP;
+END;
+$$;
+
+
