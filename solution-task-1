@@ -1,22 +1,82 @@
-create table main (t1 int);
+/*
+CREATE TABLE IF NOT EXISTS main 
+( 
+ t1 INTEGER
+);
 
-create unique index main_idx on main (t1);
+--зачем создавать индекс для таблицы с одним полем!?!
+--Какой в нем смысл!?!
+CREATE UNIQUE INDEX IF NOT EXISTS main_idx ON main (t1);
+*/
+-- Проше уникальность поставить на поле чем индекс
+CREATE TABLE IF NOT EXISTS main 
+( 
+ t1 INTEGER,
+  UNIQUE(t1) 
+);
 
-create table mainlog (logdata  varchar(512));
+CREATE TABLE IF NOT EXISTS MAINLOG 
+(
+logdata VARCHAR(512)
+);
 
-CREATE OR REPLACE FUNCTION MAIN_LOG (IN pResult CHAR)
+--Поскольку автономной транзации нет по условию задачи - приходится извращаться)))
+CREATE EXTENSION IF NOT EXISTS dblink
+    SCHEMA public
+    VERSION "1.2";
+
+
+   SELECT dblink_connect('con','host=127.0.0.1 dbname=postgres user=postgres password=qwerty');
+
+
+
+CREATE OR REPLACE FUNCTION MAIN_LOG (IN pResult VARCHAR)
 RETURNS void AS
 $$
 DECLARE
   INSERT_SQL text := 'INSERT INTO MAINLOG (logdata) VALUES (''[MESSAGE]'')';
 BEGIN
-  IF p_level != 'ERROR' AND p_level != 'WARNING'
-    AND p_level != 'INFO' AND p_level != 'DEBUG' THEN
-    RAISE EXCEPTION 'Log level should be one of the following types: ERROR, WARNING, INFO, DEBUG';
-  END IF;
-  
+  --Замена DML-запросе значения
   INSERT_SQL := replace(INSERT_SQL, '[MESSAGE]', pResult);
   
-  PERFORM dblink_exec('dbname=' || current_database(), INSERT_SQL);
+  --Посылаем по ДБ линку ИНСЕРТ, тем самым формируем автономность транзакции
+  PERFORM dblink_exec('con', INSERT_SQL);
+  WHEN OTHERS
+  THEN NULL;
 END;
 $$ LANGUAGE 'plpgsql';
+
+CREATE OR REPLACE FUNCTION MAIN_INS (IN pT1 INTEGER)
+RETURNS void AS
+$$
+DECLARE
+BEGIN
+  INSERT INTO main(t1) VALUES(pT1);
+  PERFORM MAIN_LOG('Insert Ok');	
+
+EXCEPTION
+  WHEN OTHERS THEN
+      PERFORM MAIN_LOG(SUBSTRING('Insert exception, error code=' || SQLSTATE || ' time:'|| to_char(now(),'YYYY-MM-DD hh:mi') || ', errmsg ' || SQLERRM ,1,500));
+--  
+end; 
+$$ language plpgsql;
+
+DO $$DECLARE r record;
+BEGIN
+   PERFORM MAIN_INS(1);
+   PERFORM MAIN_INS(1);
+   commit;	
+END$$;
+
+select * from main
+select * from mainlog
+
+DELETE FROM main;
+DELETE FROM mainlog;
+
+DROP TABLE main;
+DROP TABLE MAINLOG;
+DROP FUNCTION MAIN_LOG;
+DROP FUNCTION MAIN_INS;
+DROP EXTENSION dblink;
+
