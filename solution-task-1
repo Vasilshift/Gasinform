@@ -1,14 +1,10 @@
-/*
 CREATE TABLE IF NOT EXISTS main 
 ( 
  t1 INTEGER
 );
 
---зачем создавать индекс для таблицы с одним полем!?!
---Какой в нем смысл!?!
 CREATE UNIQUE INDEX IF NOT EXISTS main_idx ON main (t1);
-*/
--- Проше уникальность поставить на поле чем индекс
+
 CREATE TABLE IF NOT EXISTS main 
 ( 
  t1 INTEGER,
@@ -20,7 +16,7 @@ CREATE TABLE IF NOT EXISTS MAINLOG
 logdata VARCHAR(512)
 );
 
---Поскольку автономной транзации нет по условию задачи - приходится извращаться)))
+--Поскольку автономной транзации нет по условию задачи - приходится мудрить
 CREATE EXTENSION IF NOT EXISTS dblink
     SCHEMA public
     VERSION "1.2";
