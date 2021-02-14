@@ -43,7 +43,7 @@ begin
 end;
 $$;
 
--- 5.Создаем функцию для оттображения иерархии
+-- 5.Создаем функцию для отображения иерархии
 CREATE OR REPLACE FUNCTION MAIN_INS (IN p_Tab reg_tab, IN pReg_name varchar)
 RETURNS void AS
 $$
