@@ -1,0 +1,122 @@
+-- 1.Создаем составной тип
+DO
+$$
+BEGIN
+  CREATE TYPE region_type as (id integer,name varchar(100), pid integer);
+
+EXCEPTION 
+  WHEN duplicate_object
+  THEN return;
+END;$$
+LANGUAGE plpgsql;
+
+-- 2.Создаем домейн для массива типа region_type
+DO $$
+begin
+  CREATE DOMAIN reg_tab AS region_type[];
+EXCEPTION 
+  WHEN duplicate_object
+  THEN return;
+END
+$$;
+
+
+-- 3.Создаем функцию установки значений в массив
+CREATE OR REPLACE FUNCTION tab_SET(in p_tab reg_tab, p_region region_type) 
+returns reg_tab 
+language plpgsql as 
+$$
+declare
+begin
+  return array_append(p_tab, p_region);  
+end;
+$$;
+
+-- 4.Создаем функции для получении массива
+CREATE OR REPLACE FUNCTION tab_GET(p_tab reg_tab) 
+returns reg_tab 
+language plpgsql as 
+$$
+declare
+begin
+  return p_tab;  
+end;
+$$;
+
+-- 5.Создаем функцию для оттображения иерархии
+CREATE OR REPLACE FUNCTION MAIN_INS (IN p_Tab reg_tab, IN pReg_name varchar)
+RETURNS void AS
+$$
+DECLARE
+   err_num      TEXT;
+   err_msg      varchar(100);
+   my_path VARCHAR(100);
+BEGIN
+    --Иерархия
+    WITH RECURSIVE DS 
+	(ID,NAME,PID,PATH, LEVEL) 
+	AS 
+	(
+	  SELECT 
+		T1.ID,
+		T1.NAME,
+		T1.PID, 
+		CAST (T1.NAME AS VARCHAR (100)) as PATH,
+		1
+	  FROM 
+		POLIKARPOV_TEST T1 
+	  WHERE T1.pid IS NULL
+	union
+	  SELECT 
+		T2.ID, 
+		T2.NAME, 
+		T2.PID, 
+		CAST ( DS.PATH ||'/'|| T2.NAME AS VARCHAR(100)), 
+		LEVEL + 1
+	  FROM 
+		POLIKARPOV_TEST T2 
+	  INNER JOIN DS ON (DS.ID= T2.PID) 
+	)
+   SELECT a.path 
+   INTO my_path
+   FROM DS a
+   WHERE UPPER(a.name) = UPPER(pReg_name);
+   
+   IF my_path is null then
+     RAISE;
+   END IF;
+   
+   RAISE NOTICE '%',my_path;
+
+EXCEPTION
+
+  WHEN OTHERS THEN
+    --err_num := SQLSTATE;
+    --err_msg := SUBSTR(SQLERRM,1,100);
+    RAISE NOTICE 'Ошибка';
+end; 
+$$ language plpgsql;
+
+
+-- 
+DO
+language plpgsql  
+$$
+DECLARE
+ t_reg_tab reg_tab;
+ r record;
+
+BEGIN
+ 
+ t_reg_tab := tab_SET(t_reg_tab,ROW(1, 'Россия',NULL));  
+ t_reg_tab := tab_SET(t_reg_tab,ROW(2, 'Москва', 1)); 
+ t_reg_tab := tab_SET(t_reg_tab,ROW(3, 'Санкт-Петербург', 1)); 
+ t_reg_tab := tab_SET(t_reg_tab,ROW(4, 'Краснодарский край', 1)); 
+ t_reg_tab := tab_SET(t_reg_tab,ROW(5, 'Краснодар', 4));  
+ t_reg_tab := tab_SET(t_reg_tab,ROW(6, 'Воронежская область', 1)); 
+
+ PERFORM MAIN_INS(t_reg_tab,'Краснодар');	
+ PERFORM MAIN_INS(t_reg_tab,'Стамбул');
+END;
+$$;
+
